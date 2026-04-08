@@ -1,0 +1,9 @@
+*.o
+*.out
+*.exe
+*.dSYM/
+build/
+.DS_Store
+.vscode/
+.idea/
+main
