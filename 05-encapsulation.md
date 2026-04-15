@@ -45,52 +45,21 @@ hero.heal(30);
 
 В первом случае внешний код знает про HP, максимум, ограничения. Во втором — всё это внутри `Player`. Если правила лечения изменятся (например, отравленный герой лечится на 50%) — менять только `Player::heal`.
 
-## const: обещание не менять
+## const в действии
 
-Некоторые методы только читают данные, ничего не меняя. Компилятору можно об этом сказать — добавить `const` после скобок:
-
-```cpp
-class Player {
-private:
-    std::string name;
-    int hp;
-    int maxHp;
-
-public:
-    bool isAlive() const { return hp > 0; }     // не меняет объект
-    void printStatus() const {                    // не меняет объект
-        std::cout << name << ": " << hp << "/" << maxHp << " HP\n";
-    }
-    void takeDamage(int dmg) { hp -= dmg; }      // меняет — без const
-};
-```
-
-Зачем? Если внутри `const`-метода случайно напишешь `hp = 0` — компилятор поймает ошибку. Это страховка.
-
-Правило: если метод не меняет объект — ставь `const`.
+В уроке 03 мы узнали: `const` после метода — обещание не менять объект. Здесь это правило работает на полную: `isAlive()`, `getName()`, `operator<<` — все const, потому что только читают. А `heal()`, `takeDamage()` — без const, потому что меняют HP.
 
 ## this: указатель на себя
 
-Иногда нужно сослаться на текущий объект. Внутри метода `this` — указатель на объект, у которого вызван метод:
-
-```cpp
-class Player {
-private:
-    std::string name;
-    int hp;
-
-public:
-    Player(std::string name, int hp) : name(name), hp(hp) {}
-};
-```
-
-Здесь параметры `name` и `hp` совпадают с полями. Компилятор поймёт (в списке инициализации это работает), но иногда нужна явность:
+Внутри любого метода `this` — указатель на объект, у которого этот метод вызвали. Чаще всего он не нужен явно — компилятор и так понимает, что `hp` это поле. Но если имя параметра совпадает с именем поля — `this` помогает их различить:
 
 ```cpp
 void rename(std::string name) {
     this->name = name;  // this->name — поле, name — параметр
 }
 ```
+
+На практике проще давать параметрам другие имена (`n` вместо `name`). Но знать про `this` нужно — он пригодится позже.
 
 ## operator<<: объект сам знает, как себя показать
 
@@ -125,8 +94,11 @@ public:
 };
 ```
 
+Разберём сигнатуру по частям:
 - `friend` — функция не метод класса, но видит его private-поля
-- `return out` — чтобы работали цепочки: `cout << sword << " готов!\n"`
+- `std::ostream& out` — ссылка на поток вывода (cout, файл, строковый поток)
+- `const Weapon& w` — ссылка на оружие, const потому что только читаем
+- `return out` — возвращаем поток, чтобы работали цепочки: `cout << sword << " готов!\n"`
 
 Теперь:
 
@@ -205,6 +177,7 @@ public:
     Player(std::string n, int h, Weapon w, Armor a)
         : name(n), hp(h), maxHp(h), weapon(w), armor(a) {}
 
+    // const — потому что атака не меняет самого атакующего, только цель
     void attack(Player& target) const {
         int dmg = weapon.strike();
         std::cout << name << " атакует " << target.name << "!\n";
@@ -279,7 +252,27 @@ Rogue атакует Knight!
   25 урона прошло
 Knight: 75/100 HP, Sword (урон: 25), Iron Plate (защита: 10)
 Rogue: 60/80 HP, Dagger (урон: 35), Leather (защита: 5)
-...
+--- Ход 2 ---
+Knight атакует Rogue!
+  20 урона прошло
+Rogue атакует Knight!
+  25 урона прошло
+Knight: 50/100 HP, Sword (урон: 25), Iron Plate (защита: 10)
+Rogue: 40/80 HP, Dagger (урон: 35), Leather (защита: 5)
+--- Ход 3 ---
+Knight атакует Rogue!
+  20 урона прошло
+Rogue атакует Knight!
+  25 урона прошло
+Knight: 25/100 HP, Sword (урон: 25), Iron Plate (защита: 10)
+Rogue: 20/80 HP, Dagger (урон: 35), Leather (защита: 5)
+--- Ход 4 ---
+Knight атакует Rogue!
+  20 урона прошло
+Knight: 25/100 HP, Sword (урон: 25), Iron Plate (защита: 10)
+Rogue: 0/80 HP, Dagger (урон: 35), Leather (защита: 5)
+
+Knight победил!
 ```
 
 Каждый объект отвечает за себя: `Armor::reduce` считает поглощение, `Player::takeDamage` применяет его, `operator<<` выводит — и всё это не размазано по `main()`.
@@ -297,11 +290,12 @@ Rogue: 60/80 HP, Dagger (урон: 35), Leather (защита: 5)
 class Player {
     std::string name;
     int hp;
+    int maxHp;
 public:
     bool isAlive() const { return hp > 0; }
     void heal(int amount) { hp += amount; if (hp > maxHp) hp = maxHp; }
     friend std::ostream& operator<<(std::ostream& out, const Player& p) {
-        out << p.name << ": " << p.hp << " HP";
+        out << p.name << ": " << p.hp << "/" << p.maxHp << " HP";
         return out;
     }
 };
@@ -326,14 +320,21 @@ Monster goblin("Goblin", 60, 15);
 std::cout << goblin << "\n"; // Goblin: 60 HP, урон: 15
 ```
 
-Добавь метод `attack(Player& target)` — монстр бьёт игрока. И проведи бой:
+Добавь метод `attack(Player& target)` — монстр бьёт игрока. И `takeDamage(int dmg)` — монстр получает урон.
+
+Чтобы герой мог бить монстра, добавь в `Player` метод `attack(Monster& target)` — как мы делали в уроке 03.
+
+Проведи бой:
 
 ```cpp
 Player hero("Knight", 100, Weapon("Sword", 25), Armor("Iron Plate", 10));
 Monster goblin("Goblin", 60, 15);
 
 while (hero.isAlive() && goblin.isAlive()) {
-    // герой бьёт монстра, монстр бьёт героя
+    hero.attack(goblin);
+    if (goblin.isAlive()) {
+        goblin.attack(hero);
+    }
     std::cout << hero << "\n" << goblin << "\n---\n";
 }
 ```

@@ -158,6 +158,8 @@ public:
 };
 ```
 
+Заметь: `equip` принимает `Weapon newWeapon` без `&`. В уроке 03 мы узнали, что объекты лучше передавать по ссылке. Но здесь другой случай — мы хотим **сохранить свою копию** оружия. Если бы мы взяли ссылку, а оригинал потом исчез — у игрока было бы сломанное оружие.
+
 ```cpp
 Player knight("Knight", 100, Weapon("Fist", 5));
 knight.printStatus(); // Knight: 100 HP, оружие: Fist (урон: 5)
@@ -179,7 +181,7 @@ private:
     int damage;
 
 public:
-    Weapon() : name("Fist"), damage(5) {}
+    Weapon() : name("Fist"), damage(5) {}  // нужен, потому что Player хранит Weapon как поле
     Weapon(std::string n, int d) : name(n), damage(d) {}
 
     int strike() const {
@@ -279,6 +281,7 @@ Knight: 65 HP, оружие: Axe (урон: 40)
 Rogue: 40 HP, оружие: Dagger (урон: 35)
 --- Ход 2 ---
 Knight атакует Rogue!
+Knight: 65 HP, оружие: Axe (урон: 40)
 Rogue: 0 HP, оружие: Dagger (урон: 35)
 
 Knight победил!
@@ -350,7 +353,7 @@ Player hero("Knight", 100, Weapon("Sword", 25), Armor("Shield", 5));
 Potion heal("Heal Potion", 30, 2);
 
 hero.takeDamage(50);
-hero.printStatus();    // Knight: 55 HP
+hero.printStatus();    // Knight: 55 HP (50 - 5 защиты = 45 урона, 100 - 45 = 55)
 
 heal.use(hero);
 hero.printStatus();    // Knight: 85 HP
@@ -360,6 +363,8 @@ hero.printStatus();    // Knight: 100 HP (не выше максимума)
 
 heal.use(hero);        // Зелье закончилось!
 ```
+
+Подсказка: чтобы HP не превышал максимум, тебе понадобится поле `maxHp` в `Player`. Задай его равным начальному HP в конструкторе.
 
 Обрати внимание: зелье — отдельный объект со своим состоянием (заряды). Игрок не знает, как зелье работает. Зелье не знает, сколько у игрока HP максимум — оно просто лечит, а игрок сам следит за лимитом.
 
